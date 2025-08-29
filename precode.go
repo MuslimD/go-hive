@@ -1,151 +1,58 @@
 package main
 
 import (
-	"encoding/json"
-	"fmt"
-	"net/http"
-	"io"
-
-	"github.com/go-chi/chi/v5"
+    "net/http"
+    "net/http/httptest"
+    "strconv"
+    "strings"
+    "testing"
 )
 
-// Task ...
-type Task struct {
-	ID           string   `json:"id"`
-	Description  string   `json:"description"`
-	Note         string   `json:"note"`
-	Applications []string `json:"applications"`
+var cafeList = map[string][]string{
+    "moscow": []string{"Мир кофе", "Сладкоежка", "Кофе и завтраки", "Сытый студент"},
 }
 
-type TaskReturnWithMesssage struct {
-	Task
-	Message string `json:"message"`
-}
-
-var tasks = map[string]Task{
-	"1": {
-		ID:          "1",
-		Description: "Сделать финальное задание темы REST API",
-		Note:        "Если сегодня сделаю, то завтра будет свободный день. Ура!",
-		Applications: []string{
-			"VS Code",
-			"Terminal",
-			"git",
-		},
-	},
-	"2": {
-		ID:          "2",
-		Description: "Протестировать финальное задание с помощью Postmen",
-		Note:        "Лучше это делать в процессе разработки, каждый раз, когда запускаешь сервер и проверяешь хендлер",
-		Applications: []string{
-			"VS Code",
-			"Terminal",
-			"git",
-			"Postman",
-		},
-	},
-}
-
-// Ниже напишите обработчики для каждого эндпоинта
-func getTasks(w http.ResponseWriter, r *http.Request) {
-	data, err := json.Marshal(tasks)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	_, err = w.Write(data)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-}
-func getTask(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, "id")
-
-	task, ok := tasks[id]
-	if !ok {
-		http.Error(w, "Задача не найдена!", http.StatusInternalServerError)
-		return
-	}
-	data, jsonErr := json.Marshal(task)
-	if jsonErr != nil {
-		http.Error(w, jsonErr.Error(), http.StatusInternalServerError)
-		return
-	}
-	_, writeErr := w.Write(data)
-	if writeErr != nil {
-		http.Error(w, writeErr.Error(), http.StatusInternalServerError)
-		return
-	}
-}
-func createTask(w http.ResponseWriter, r *http.Request) {
-	body, err := io.ReadAll(r.Body)
-    if err != nil {
-        http.Error(w, err.Error(), http.StatusInternalServerError)
+func mainHandle(w http.ResponseWriter, req *http.Request) {
+    countStr := req.URL.Query().Get("count")
+    if countStr == "" {
+        w.WriteHeader(http.StatusBadRequest)
+        w.Write([]byte("count missing"))
         return
     }
-    defer r.Body.Close()
 
-    var task Task
-    err = json.Unmarshal(body, &task)
+    count, err := strconv.Atoi(countStr)
     if err != nil {
-        http.Error(w, err.Error(), http.StatusBadRequest)
+        w.WriteHeader(http.StatusBadRequest)
+        w.Write([]byte("wrong count value"))
         return
     }
-	tasks[task.ID] = task
-	message := TaskReturnWithMesssage{
-		Task:task,
-		Message: "Задача успещно добавлена!",
-	}
 
-	data, jsonErr := json.Marshal(message)
-	if jsonErr != nil {
-		http.Error(w, jsonErr.Error(), http.StatusInternalServerError)
-		return
-	}
-	_, writeErr := w.Write(data)
-	if writeErr != nil {
-		http.Error(w, writeErr.Error(), http.StatusInternalServerError)
-		return
-	}
-}
-func deleteTask(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, "id")
+    city := req.URL.Query().Get("city")
 
-	task, ok := tasks[id]
-	if !ok {
-		http.Error(w, "Задача не найдена!", http.StatusInternalServerError)
-		return
-	}
+    cafe, ok := cafeList[city]
+    if !ok {
+        w.WriteHeader(http.StatusBadRequest)
+        w.Write([]byte("wrong city value"))
+        return
+    }
 
-	delete(tasks, id)
-	message := TaskReturnWithMesssage{
-		Task:task,
-		Message: "Задача успещно удалена!",
-	}
+    if count > len(cafe) {
+        count = len(cafe)
+    }
 
-	data, jsonErr := json.Marshal(message)
-	if jsonErr != nil {
-		http.Error(w, jsonErr.Error(), http.StatusInternalServerError)
-		return
-	}
-	_, writeErr := w.Write(data)
-	if writeErr != nil {
-		http.Error(w, writeErr.Error(), http.StatusInternalServerError)
-		return
-	}
+    answer := strings.Join(cafe[:count], ",")
+
+    w.WriteHeader(http.StatusOK)
+    w.Write([]byte(answer))
 }
 
-func main() {
-	r := chi.NewRouter()
+func TestMainHandlerWhenCountMoreThanTotal(t *testing.T) {
+    totalCount := 4
+    req := ... // здесь нужно создать запрос к сервису
 
-	r.Get("/tasks", getTasks)
-	r.Get("/tasks/{id}", getTask)
-	r.Post("/tasks", createTask)
-	r.Delete("/tasks/{id}", deleteTask)
+    responseRecorder := httptest.NewRecorder()
+    handler := http.HandlerFunc(mainHandle)
+    handler.ServeHTTP(responseRecorder, req)
 
-	if err := http.ListenAndServe(":8080", r); err != nil {
-		fmt.Printf("Ошибка при запуске сервера: %s", err.Error())
-		return
-	}
+    // здесь нужно добавить необходимые проверки
 }
