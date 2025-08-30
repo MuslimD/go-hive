@@ -48,11 +48,46 @@ func mainHandle(w http.ResponseWriter, req *http.Request) {
 
 func TestMainHandlerWhenCountMoreThanTotal(t *testing.T) {
     totalCount := 4
-    req := ... // здесь нужно создать запрос к сервису
+    req := httptest.NewRequest("GET", "/cafe?count=5&city=moscow", nil)
 
     responseRecorder := httptest.NewRecorder()
     handler := http.HandlerFunc(mainHandle)
     handler.ServeHTTP(responseRecorder, req)
-
-    // здесь нужно добавить необходимые проверки
+    currentTotal := len(strings.Split(responseRecorder.Body.String(), ","))
+    if currentTotal != totalCount {
+        t.Errorf("expected total %d, got %d", totalCount, currentTotal)
+    }
 }
+
+func TestMainHandlerWhenThereIsNoCity(t *testing.T) {
+    req := httptest.NewRequest("GET", "/cafe?count=4&city=berlin", nil)
+
+    responseRecorder := httptest.NewRecorder()
+    handler := http.HandlerFunc(mainHandle)
+    handler.ServeHTTP(responseRecorder, req)
+    body := responseRecorder.Body.String()
+    if body != "wrong city value" {
+        t.Errorf("expected total 'wrong city value', got %s", body)
+    }
+    code := responseRecorder.Code
+    if code != 400 {
+        t.Errorf("expected code 400, got %d", code)
+    }
+}
+
+func TestMainHandlerWhenSuccess(t *testing.T) {
+    req := httptest.NewRequest("GET", "/cafe?count=4&city=moscow", nil)
+
+    responseRecorder := httptest.NewRecorder()
+    handler := http.HandlerFunc(mainHandle)
+    handler.ServeHTTP(responseRecorder, req)
+    body := responseRecorder.Body
+    if body == nil {
+        t.Errorf("expected body, got nil")
+    }
+    code := responseRecorder.Code
+    if code != 200 {
+        t.Errorf("expected code 200, got %d", code)
+    }
+}
+
