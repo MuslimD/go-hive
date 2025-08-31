@@ -1,0 +1,17 @@
+services:
+  db:
+    image: mysql:latest
+    container_name: my-mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: qwe12345       # пароль для root
+      MYSQL_DATABASE: go_bd               # создаст базу при старте
+      MYSQL_USER: muslimD                 # пользователь
+      MYSQL_PASSWORD: qwe12345             # пароль для пользователя
+    ports:
+      - "3406:3306"                       # наружу будет доступно на порту 3406
+    volumes:
+      - db_data:/var/lib/mysql            # сохраняем данные при перезапуске контейнера
+
+volumes:
+  db_data:

@@ -1,1 +1,1 @@
-# go-rest-api-homework
+# go-db-sql-final
