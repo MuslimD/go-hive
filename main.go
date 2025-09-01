@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	_ "modernc.org/sqlite"
+	_ "github.com/go-sql-driver/mysql"
 )
 
 const (
@@ -31,8 +31,7 @@ func NewParcelService(store ParcelStore) ParcelService {
 }
 
 func (s ParcelService) Register(client int, address string) (Parcel, error) {
-	parcel := Parcel{
-		Client:    client,
+	parcel := Parcel{Client: client,
 		Status:    ParcelStatusRegistered,
 		Address:   address,
 		CreatedAt: time.Now().UTC().Format(time.RFC3339),
@@ -59,6 +58,7 @@ func (s ParcelService) PrintClientParcels(client int) error {
 
 	fmt.Printf("Посылки клиента %d:\n", client)
 	for _, parcel := range parcels {
+
 		fmt.Printf("Посылка № %d на адрес %s от клиента с идентификатором %d зарегистрирована %s, статус %s\n",
 			parcel.Number, parcel.Address, parcel.Client, parcel.CreatedAt, parcel.Status)
 	}
@@ -98,8 +98,20 @@ func (s ParcelService) Delete(number int) error {
 
 func main() {
 	// настройте подключение к БД
+	dsn := "muslimD:qwe12345@tcp(127.0.0.1:3406)/go_bd?charset=utf8mb4&parseTime=True&loc=Local"
 
-	store := // создайте объект ParcelStore функцией NewParcelStore
+	db, err := sql.Open("mysql", dsn)
+	if err != nil {
+		fmt.Println(err)
+	}
+	defer db.Close()
+
+	if err := db.Ping(); err != nil {
+		fmt.Println("Не удалось подключиться:", err)
+		return
+	}
+
+	store := NewParcelStore(db)
 	service := NewParcelService(store)
 
 	// регистрация посылки

@@ -18,6 +18,19 @@ var (
 	randRange = rand.New(randSource)
 )
 
+func setupPostgres(t *testing.T) ParcelService {
+	dsn := "muslimD:qwe12345@tcp(127.0.0.1:3406)/go_bd?charset=utf8mb4&parseTime=True&loc=Local"
+	db, err := sql.Open("mysql", dsn)
+
+	require.NoError(t, err)
+	require.NoError(t, db.Ping())
+
+	store := NewParcelStore(db)
+	service := NewParcelService(store)
+
+	return service
+}
+
 // getTestParcel возвращает тестовую посылку
 func getTestParcel() Parcel {
 	return Parcel{
@@ -30,58 +43,63 @@ func getTestParcel() Parcel {
 
 // TestAddGetDelete проверяет добавление, получение и удаление посылки
 func TestAddGetDelete(t *testing.T) {
-	// prepare
-	db, err := // настройте подключение к БД
-	store := NewParcelStore(db)
+	service := setupPostgres(t)
 	parcel := getTestParcel()
 
-	// add
-	// добавьте новую посылку в БД, убедитесь в отсутствии ошибки и наличии идентификатора
+	id, err := service.store.Add(parcel)
+	require.NoError(t, err)
+	require.NotEqual(t, 0, id, "id не должен быть равен 0")
 
-	// get
-	// получите только что добавленную посылку, убедитесь в отсутствии ошибки
-	// проверьте, что значения всех полей в полученном объекте совпадают со значениями полей в переменной parcel
+	p, err := service.store.Get(id)
+	require.NoError(t, err)
 
-	// delete
-	// удалите добавленную посылку, убедитесь в отсутствии ошибки
-	// проверьте, что посылку больше нельзя получить из БД
+	p.Number = 0
+	p.CreatedAt = ""
+	parcel.CreatedAt = ""
+
+	require.Equal(t, p, parcel, "p должен быть равен parcel")
+
+	require.NoError(t, service.store.Delete(id))
 }
 
 // TestSetAddress проверяет обновление адреса
 func TestSetAddress(t *testing.T) {
-	// prepare
-	db, err := // настройте подключение к БД
 
-	// add
-	// добавьте новую посылку в БД, убедитесь в отсутствии ошибки и наличии идентификатора
+	service := setupPostgres(t)
+	parcel := getTestParcel()
 
-	// set address
-	// обновите адрес, убедитесь в отсутствии ошибки
+	id, err := service.store.Add(parcel)
+	require.NoError(t, err)
+	require.NotEqual(t, 0, id, "id не должен быть равен 0")
+
 	newAddress := "new test address"
+	require.NoError(t, service.store.SetAddress(id, newAddress))
 
-	// check
-	// получите добавленную посылку и убедитесь, что адрес обновился
+	p, err := service.store.Get(id)
+	require.NoError(t, err)
+	require.Equal(t, p.Address, newAddress, "адрес в новом parcel должен быть равен newAddress")
 }
 
 // TestSetStatus проверяет обновление статуса
 func TestSetStatus(t *testing.T) {
-	// prepare
-	db, err := // настройте подключение к БД
+	service := setupPostgres(t)
+	parcel := getTestParcel()
 
-	// add
-	// добавьте новую посылку в БД, убедитесь в отсутствии ошибки и наличии идентификатора
+	id, err := service.store.Add(parcel)
+	require.NoError(t, err)
+	require.NotEqual(t, 0, id, "id не должен быть равен 0")
 
-	// set status
-	// обновите статус, убедитесь в отсутствии ошибки
+	newStatus := "new test status"
+	require.NoError(t, service.store.SetStatus(id, newStatus))
 
-	// check
-	// получите добавленную посылку и убедитесь, что статус обновился
+	p, err := service.store.Get(id)
+	require.NoError(t, err)
+	require.Equal(t, p.Status, newStatus, "status в новом parcel должен быть равен newStatus")
 }
 
 // TestGetByClient проверяет получение посылок по идентификатору клиента
 func TestGetByClient(t *testing.T) {
-	// prepare
-	db, err := // настройте подключение к БД
+	service := setupPostgres(t)
 
 	parcels := []Parcel{
 		getTestParcel(),
@@ -98,17 +116,21 @@ func TestGetByClient(t *testing.T) {
 
 	// add
 	for i := 0; i < len(parcels); i++ {
-		id, err := // добавьте новую посылку в БД, убедитесь в отсутствии ошибки и наличии идентификатора
+		id, err := service.store.Add(parcels[i])
+		require.NoError(t, err)
+		require.NotEqual(t, 0, id, "id не должен быть равен 0")
 
-		// обновляем идентификатор добавленной у посылки
 		parcels[i].Number = id
-
-		// сохраняем добавленную посылку в структуру map, чтобы её можно было легко достать по идентификатору посылки
 		parcelMap[id] = parcels[i]
 	}
 
 	// get by client
-	storedParcels, err := // получите список посылок по идентификатору клиента, сохранённого в переменной client
+
+	storedParcels, err := service.store.GetByClient(client)
+	require.NoError(t, err)
+	require.Equal(t, len(storedParcels), len(parcels), "количество полученных посылок должно быть равно количеству добавленных")
+
+	// получите список посылок по идентификатору клиента, сохранённого в переменной client
 	// убедитесь в отсутствии ошибки
 	// убедитесь, что количество полученных посылок совпадает с количеством добавленных
 
@@ -116,6 +138,12 @@ func TestGetByClient(t *testing.T) {
 	for _, parcel := range storedParcels {
 		// в parcelMap лежат добавленные посылки, ключ - идентификатор посылки, значение - сама посылка
 		// убедитесь, что все посылки из storedParcels есть в parcelMap
+
+		p, ok := parcelMap[parcel.Number]
+		require.True(t, ok, "ключ должен существовать в map")
+		p.CreatedAt = ""
+		parcel.CreatedAt = ""
+		require.Equal(t, p, parcel)
 		// убедитесь, что значения полей полученных посылок заполнены верно
 	}
 }
